@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>AI DJ KTV 點歌系統</title>
+  <style>
+    :root {
+      --bg: #121212;
+      --surface: #1e1e1e;
+      --surface-2: #2c2c2c;
+      --primary: #bb86fc;
+      --secondary: #03dac6;
+      --warn: #ffb74d;
+      --danger: #cf6679;
+      --text: #ffffff;
+      --muted: #aaaaaa;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 15px 15px 48px;
+    }
+    h2, h3 { color: var(--primary); margin: 18px 0 10px; text-align: center; }
+    .container { max-width: 520px; margin: 0 auto; }
+    .conn-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      margin-bottom: 12px;
+      border-radius: 8px;
+      background: var(--surface);
+      border: 1px solid #333;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .conn-bar button {
+      padding: 5px 10px;
+      font-size: 12px;
+      background: var(--surface-2);
+      color: var(--text);
+    }
+    .conn-panel {
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+      padding: 12px;
+      margin-bottom: 14px;
+      border-radius: 10px;
+      background: var(--surface);
+      border: 1px solid var(--primary);
+    }
+    .conn-panel.open { display: flex; }
+    .search-box { display: flex; gap: 8px; margin-bottom: 12px; }
+    input {
+      flex: 1;
+      width: 100%;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #444;
+      background: var(--surface);
+      color: var(--text);
+      font-size: 16px;
+    }
+    button {
+      padding: 10px 14px;
+      font-size: 14px;
+      font-weight: bold;
+      border: none;
+      border-radius: 8px;
+      background: var(--primary);
+      color: #000;
+      cursor: pointer;
+    }
+    button:active { opacity: 0.75; }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    .status-bar {
+      margin-bottom: 12px;
+      padding: 10px;
+      border-radius: 8px;
+      background: #1f2937;
+      color: var(--secondary);
+      font-size: 14px;
+      text-align: center;
+      display: none;
+    }
+    .list-box { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+    .card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--surface);
+      padding: 10px;
+      border-radius: 10px;
+      border: 1px solid #333;
+    }
+    .card img { width: 50px; height: 50px; border-radius: 6px; object-fit: cover; background: #222; }
+    .info { flex: 1; overflow: hidden; }
+    .title {
+      font-weight: bold;
+      font-size: 14px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .meta { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: #333;
+      color: var(--secondary);
+      font-size: 11px;
+      margin-right: 6px;
+    }
+    .btn-group { display: flex; gap: 6px; }
+    .btn-bump { background: var(--warn); color: #000; padding: 8px 10px; }
+    .btn-del { background: var(--danger); color: #000; padding: 8px 10px; }
+    .now-playing { border: 1px solid var(--secondary); background: #132a27; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
+    .ctrl-btn {
+      padding: 14px 10px;
+      background: var(--surface-2);
+      color: var(--text);
+      font-size: 14px;
+      border: 1px solid transparent;
+    }
+    .ctrl-btn.active {
+      background: var(--primary);
+      color: #000;
+      border-color: #ffffff;
+    }
+    .full {
+      grid-column: span 2;
+      background: var(--secondary);
+      color: #000;
+      font-size: 16px;
+      padding: 16px;
+    }
+    .empty-tip { text-align: center; color: #777; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>🎵 AI DJ KTV 點歌台</h2>
+
+    <div class="conn-bar">
+      <span id="connLabel">未設定伺服器</span>
+      <button onclick="toggleConnPanel()">連線設定</button>
+    </div>
+
+    <div id="connPanel" class="conn-panel">
+      <input id="apiInput" type="url" placeholder="後端網址，例如 https://xxx.trycloudflare.com" />
+      <input id="pinInput" type="password" inputmode="numeric" placeholder="包廂 PIN 碼（預設 8888）" />
+      <button onclick="saveConnection()">儲存並連線</button>
+    </div>
+
+    <div class="search-box">
+      <input id="q" type="text" placeholder="輸入歌名或歌手..." onkeypress="if(event.key==='Enter') doSearch()" />
+      <button onclick="doSearch()">搜尋</button>
+    </div>
+
+    <div id="status" class="status-bar"></div>
+    <div id="results" class="list-box"></div>
+
+    <h3>📋 已點歌曲列表 (<span id="queueCount">0</span> 首待播)</h3>
+    <div id="queueList" class="list-box">
+      <div class="empty-tip">目前沒有點播歌曲</div>
+    </div>
+
+    <h3>🎙️ 雙軌同步人聲控制</h3>
+    <div class="grid-3">
+      <button id="btn-bothVocal0" class="ctrl-btn" onclick="cmd('bothVocal0')">🔇 雙軌伴唱</button>
+      <button id="btn-bothVocal40" class="ctrl-btn" onclick="cmd('bothVocal40')">🔉 雙軌導唱</button>
+      <button id="btn-bothVocal100" class="ctrl-btn" onclick="cmd('bothVocal100')">🔊 雙軌原唱</button>
+    </div>
+
+    <h3>🎛️ 左轉盤 (Deck 1) · Key: <span id="leftKeyLabel">0</span></h3>
+    <div class="grid">
+      <button class="ctrl-btn" onclick="cmd('leftKeyUp')">🔼 升 Key (+1)</button>
+      <button class="ctrl-btn" onclick="cmd('leftKeyDown')">🔽 降 Key (-1)</button>
+      <button id="btn-leftVocal0" class="ctrl-btn" onclick="cmd('leftVocal0')">🔇 伴唱 (0%)</button>
+      <button id="btn-leftVocal40" class="ctrl-btn" onclick="cmd('leftVocal40')">🔉 導唱 (40%)</button>
+      <button id="btn-leftVocal100" class="ctrl-btn" style="grid-column: span 2;" onclick="cmd('leftVocal100')">🔊 左軌原唱 (100%)</button>
+    </div>
+
+    <h3>🎛️ 右轉盤 (Deck 2) · Key: <span id="rightKeyLabel">0</span></h3>
+    <div class="grid">
+      <button class="ctrl-btn" onclick="cmd('rightKeyUp')">🔼 升 Key (+1)</button>
+      <button class="ctrl-btn" onclick="cmd('rightKeyDown')">🔽 降 Key (-1)</button>
+      <button id="btn-rightVocal0" class="ctrl-btn" onclick="cmd('rightVocal0')">🔇 伴唱 (0%)</button>
+      <button id="btn-rightVocal40" class="ctrl-btn" onclick="cmd('rightVocal40')">🔉 導唱 (40%)</button>
+      <button id="btn-rightVocal100" class="ctrl-btn" style="grid-column: span 2;" onclick="cmd('rightVocal100')">🔊 右軌原唱 (100%)</button>
+    </div>
+
+    <h3>⏭️ 混音切歌</h3>
+    <div class="grid">
+      <button class="full" onclick="skipSong()">⏭️ AI 混音平滑切下一首</button>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_API = 'ktv_api';
+    const STORAGE_PIN = 'ktv_pin';
+
+    let currentList = [];
+    let syncTimer = null;
+
+    // 1. 解析 URLSearchParams (?api=...&pin=...) 並寫入 localStorage
+    (function initParams() {
+      const params = new URLSearchParams(window.location.search);
+      if (params.has('api')) {
+        localStorage.setItem(STORAGE_API, params.get('api').trim().replace(/\/+$/, ''));
+      }
+      if (params.has('pin')) {
+        localStorage.setItem(STORAGE_PIN, params.get('pin').trim());
+      }
+    })();
+
+    function getApiBase() {
+      return (localStorage.getItem(STORAGE_API) || '').replace(/\/+$/, '');
+    }
+
+    function getPin() {
+      return localStorage.getItem(STORAGE_PIN) || '';
+    }
+
+    function updateConnUI() {
+      const api = getApiBase();
+      document.getElementById('apiInput').value = api;
+      document.getElementById('pinInput').value = getPin();
+      document.getElementById('connLabel').innerText = api ? `🟢 已設定：${api}` : '🔴 尚未設定後端網址';
+      if (!api) {
+        document.getElementById('connPanel').classList.add('open');
+      }
+    }
+
+    function toggleConnPanel() {
+      document.getElementById('connPanel').classList.toggle('open');
+    }
+
+    function saveConnection() {
+      const api = document.getElementById('apiInput').value.trim().replace(/\/+$/, '');
+      const pin = document.getElementById('pinInput').value.trim();
+      localStorage.setItem(STORAGE_API, api);
+      localStorage.setItem(STORAGE_PIN, pin);
+      document.getElementById('connPanel').classList.remove('open');
+      updateConnUI();
+      refreshQueue();
+    }
+
+    function escapeHtml(str) {
+      return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function showStatus(msg) {
+      const el = document.getElementById('status');
+      el.style.display = 'block';
+      el.innerText = msg;
+    }
+
+    async function apiFetch(path, options = {}) {
+      const base = getApiBase();
+      if (!base) {
+        showStatus('⚠️ 請先設定後端 API 網址或掃描包廂 QR Code');
+        throw new Error('NO_API_BASE');
+      }
+      const headers = { ...(options.headers || {}), 'x-room-pin': getPin() };
+      const res = await fetch(`${base}${path}`, { ...options, headers });
+      if (res.status === 401) {
+        showStatus('🔒 PIN 碼錯誤或未授權，請點上方「連線設定」確認 PIN 碼');
+        document.getElementById('connPanel').classList.add('open');
+      }
+      return res;
+    }
+
+    function formatKey(val) {
+      return val > 0 ? `+${val}` : String(val);
+    }
+
+    function syncDeckUI(state) {
+      if (!state) return;
+      document.getElementById('leftKeyLabel').innerText = formatKey(state.leftKey);
+      document.getElementById('rightKeyLabel').innerText = formatKey(state.rightKey);
+      [0, 40, 100].forEach(level => {
+        document.getElementById(`btn-leftVocal${level}`)?.classList.toggle('active', state.leftVocal === level);
+        document.getElementById(`btn-rightVocal${level}`)?.classList.toggle('active', state.rightVocal === level);
+        document.getElementById(`btn-bothVocal${level}`)?.classList.toggle(
+          'active',
+          state.leftVocal === level && state.rightVocal === level
+        );
+      });
+    }
+
+    async function doSearch() {
+      const q = document.getElementById('q').value.trim();
+      if (!q) return;
+      showStatus('🔍 正在搜尋本地曲庫與 YouTube...');
+      document.getElementById('results').innerHTML = '';
+
+      try {
+        const res = await apiFetch('/api/search?q=' + encodeURIComponent(q));
+        if (!res.ok) return;
+        currentList = await res.json();
+        showStatus(`找到 ${currentList.length} 首結果：`);
+
+        document.getElementById('results').innerHTML = currentList.map((item, idx) => {
+          const min = item.durationSec
+            ? Math.floor(item.durationSec / 60) + ':' + String(item.durationSec % 60).padStart(2, '0')
+            : '本地檔';
+          return `
+            <div class="card">
+              <img src="${escapeHtml(item.thumbnail)}" alt="" />
+              <div class="info">
+                <div class="title">${escapeHtml(item.title)}</div>
+                <div class="meta"><span class="badge">${escapeHtml(item.sourceLabel)}</span>${escapeHtml(item.artist)} · ${min}</div>
+              </div>
+              <div class="btn-group">
+                <button onclick="orderSong(${idx}, false, this)">點歌</button>
+                <button class="btn-bump" onclick="orderSong(${idx}, true, this)">插播</button>
+              </div>
+            </div>
+          `;
+        }).join('');
+      } catch (e) {
+        if (e.message !== 'NO_API_BASE') {
+          showStatus('❌ 搜尋失敗，請檢查網路或後端連線');
+        }
+      }
+    }
+
+    async function orderSong(idx, isPriority, btn) {
+      const item = currentList[idx];
+      btn.disabled = true;
+      showStatus(`⏳ 正在準備《${item.title}》...`);
+
+      try {
+        const res = await apiFetch('/api/order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ item, isPriority })
+        });
+        if (!res.ok) {
+          if (res.status !== 401) {
+            const errData = await res.json().catch(() => ({}));
+            showStatus('❌ 失敗：' + (errData.error || res.statusText));
+          }
+          return;
+        }
+        const data = await res.json();
+        if (data.ok) {
+          showStatus((isPriority ? '🔝 已插播' : '✅ 已點歌') + `：《${data.song.title}》`);
+          await refreshQueue();
+        } else {
+          showStatus('❌ 失敗：' + data.error);
+        }
+      } catch (e) {
+        if (e.message !== 'NO_API_BASE') showStatus('❌ 點歌請求失敗');
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    async function refreshQueue() {
+      if (!getApiBase()) return;
+      try {
+        const res = await apiFetch('/api/queue');
+        if (!res.ok) return;
+        const { nowPlaying, waitingQueue, deckState } = await res.json();
+        syncDeckUI(deckState);
+        document.getElementById('queueCount').innerText = waitingQueue.length;
+
+        let html = '';
+        if (nowPlaying) {
+          html += `
+            <div class="card now-playing">
+              <img src="${escapeHtml(nowPlaying.thumbnail)}" alt="" />
+              <div class="info">
+                <div class="title">🎤 正在播放：${escapeHtml(nowPlaying.title)}</div>
+                <div class="meta"><span class="badge">LIVE</span>請使用下方轉盤控制人聲與升降 Key</div>
+              </div>
+            </div>
+          `;
+        }
+
+        if (waitingQueue.length === 0 && !nowPlaying) {
+          html = '<div class="empty-tip">目前沒有點播歌曲</div>';
+        } else {
+          html += waitingQueue.map((song, idx) => `
+            <div class="card">
+              <div style="font-weight:bold; color:#bb86fc; width:20px; text-align:center;">${idx + 1}</div>
+              <img src="${escapeHtml(song.thumbnail)}" alt="" />
+              <div class="info">
+                <div class="title">${escapeHtml(song.title)}</div>
+                <div class="meta">${idx === 0 ? '⏭️ 即將接棒下一首' : '排隊等待中'}</div>
+              </div>
+              <div class="btn-group">
+                ${idx > 0 ? `<button class="btn-bump" onclick="bumpSong('${escapeHtml(song.queueId)}')">插播</button>` : ''}
+                <button class="btn-del" onclick="cancelSong('${escapeHtml(song.queueId)}')">取消</button>
+              </div>
+            </div>
+          `).join('');
+        }
+        document.getElementById('queueList').innerHTML = html;
+      } catch (e) {
+        // 忽略輪詢暫時性連線錯誤，等待下一輪自動重試
+      }
+    }
+
+    async function bumpSong(queueId) {
+      await apiFetch('/api/queue/bump/' + encodeURIComponent(queueId), { method: 'POST' });
+      await refreshQueue();
+    }
+
+    async function cancelSong(queueId) {
+      await apiFetch('/api/queue/' + encodeURIComponent(queueId), { method: 'DELETE' });
+      await refreshQueue();
+    }
+
+    async function skipSong() {
+      await apiFetch('/api/queue/skip', { method: 'POST' });
+      setTimeout(refreshQueue, 500);
+    }
+
+    async function cmd(action) {
+      try {
+        const res = await apiFetch('/api/vdj/' + encodeURIComponent(action), { method: 'POST' });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.deckState) syncDeckUI(data.deckState);
+        }
+      } catch (e) {}
+    }
+
+    // 2. 遞迴輪詢同步 (避免慢速網路時請求重疊堆積)
+    async function startAutoSync() {
+      clearTimeout(syncTimer);
+      if (!document.hidden) {
+        await refreshQueue();
+      }
+      syncTimer = setTimeout(startAutoSync, 2000);
+    }
+
+    // 3. 手機解鎖或切回分頁時立即同步最新歌單與轉盤亮燈
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) {
+        startAutoSync();
+      }
+    });
+
+    updateConnUI();
+    startAutoSync();
+  </script>
+</body>
+</html>
