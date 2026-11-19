@@ -164,6 +164,7 @@
     <div class="search-box">
       <input id="q" type="text" placeholder="輸入歌名或歌手..." onkeypress="if(event.key==='Enter') doSearch()" />
       <button onclick="doSearch()">搜尋</button>
+      <button style="background: var(--secondary);" onclick="loadLocalLibrary()">📂 本地</button>
     </div>
 
     <div id="status" class="status-bar"></div>
@@ -199,9 +200,10 @@
       <button id="btn-rightVocal100" class="ctrl-btn" style="grid-column: span 2;" onclick="cmd('rightVocal100')">🔊 右軌原唱 (100%)</button>
     </div>
 
-    <h3>⏭️ 混音切歌</h3>
+    <h3>⏯️ 播放與混音切歌</h3>
     <div class="grid">
-      <button class="full" onclick="skipSong()">⏭️ AI 混音平滑切下一首</button>
+      <button class="ctrl-btn" style="background: var(--warn); color: #000;" onclick="cmd('playPause')">⏯️ 播放 / 暫停</button>
+      <button class="ctrl-btn" style="background: var(--secondary); color: #000;" onclick="skipSong()">⏭️ AI 混音切歌</button>
     </div>
   </div>
 
@@ -303,39 +305,65 @@
       });
     }
 
+    function renderResults(list, emptyMsg) {
+      currentList = list;
+      if (list.length === 0) {
+        showStatus(emptyMsg || '找不到符合的歌曲');
+        document.getElementById('results').innerHTML = '';
+        return;
+      }
+      document.getElementById('results').innerHTML = currentList.map((item, idx) => {
+        const min = item.durationSec
+          ? Math.floor(item.durationSec / 60) + ':' + String(item.durationSec % 60).padStart(2, '0')
+          : '本地檔';
+        return `
+          <div class="card">
+            <img src="${escapeHtml(item.thumbnail)}" alt="" />
+            <div class="info">
+              <div class="title">${escapeHtml(item.title)}</div>
+              <div class="meta"><span class="badge">${escapeHtml(item.sourceLabel)}</span>${escapeHtml(item.artist)} · ${min}</div>
+            </div>
+            <div class="btn-group">
+              <button onclick="orderSong(${idx}, false, this)">點歌</button>
+              <button class="btn-bump" onclick="orderSong(${idx}, true, this)">插播</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
     async function doSearch() {
       const q = document.getElementById('q').value.trim();
       if (!q) return;
-      showStatus('🔍 正在搜尋本地曲庫與 YouTube...');
+      showStatus('🔍 正在搜尋本地曲庫、iTunes 與 YouTube...');
       document.getElementById('results').innerHTML = '';
 
       try {
         const res = await apiFetch('/api/search?q=' + encodeURIComponent(q));
         if (!res.ok) return;
-        currentList = await res.json();
-        showStatus(`找到 ${currentList.length} 首結果：`);
-
-        document.getElementById('results').innerHTML = currentList.map((item, idx) => {
-          const min = item.durationSec
-            ? Math.floor(item.durationSec / 60) + ':' + String(item.durationSec % 60).padStart(2, '0')
-            : '本地檔';
-          return `
-            <div class="card">
-              <img src="${escapeHtml(item.thumbnail)}" alt="" />
-              <div class="info">
-                <div class="title">${escapeHtml(item.title)}</div>
-                <div class="meta"><span class="badge">${escapeHtml(item.sourceLabel)}</span>${escapeHtml(item.artist)} · ${min}</div>
-              </div>
-              <div class="btn-group">
-                <button onclick="orderSong(${idx}, false, this)">點歌</button>
-                <button class="btn-bump" onclick="orderSong(${idx}, true, this)">插播</button>
-              </div>
-            </div>
-          `;
-        }).join('');
+        const list = await res.json();
+        showStatus(`找到 ${list.length} 首結果：`);
+        renderResults(list);
       } catch (e) {
         if (e.message !== 'NO_API_BASE') {
           showStatus('❌ 搜尋失敗，請檢查網路或後端連線');
+        }
+      }
+    }
+
+    async function loadLocalLibrary() {
+      showStatus('📂 正在讀取本地 E:\\SONG 曲庫...');
+      document.getElementById('results').innerHTML = '';
+
+      try {
+        const res = await apiFetch('/api/local');
+        if (!res.ok) return;
+        const list = await res.json();
+        showStatus(`本地曲庫共有 ${list.length} 首歌曲：`);
+        renderResults(list, '本地曲庫目前沒有歌曲');
+      } catch (e) {
+        if (e.message !== 'NO_API_BASE') {
+          showStatus('❌ 讀取本地曲庫失敗');
         }
       }
     }
