@@ -176,10 +176,9 @@
     </div>
 
     <h3>🎙️ 雙軌同步人聲控制</h3>
-    <div class="grid-3">
-      <button id="btn-bothVocal0" class="ctrl-btn" onclick="cmd('bothVocal0')">🔇 雙軌伴唱</button>
-      <button id="btn-bothVocal40" class="ctrl-btn" onclick="cmd('bothVocal40')">🔉 雙軌導唱</button>
-      <button id="btn-bothVocal100" class="ctrl-btn" onclick="cmd('bothVocal100')">🔊 雙軌原唱</button>
+    <div class="grid">
+      <button id="btn-bothVocal0" class="ctrl-btn" onclick="cmd('bothVocal0')">🔇 雙軌伴唱 (0%)</button>
+      <button id="btn-bothVocal100" class="ctrl-btn" onclick="cmd('bothVocal100')">🔊 雙軌原唱 (100%)</button>
     </div>
 
     <h3>🎛️ 左轉盤 (Deck 1) · Key: <span id="leftKeyLabel">0</span></h3>
@@ -187,8 +186,7 @@
       <button class="ctrl-btn" onclick="cmd('leftKeyUp')">🔼 升 Key (+1)</button>
       <button class="ctrl-btn" onclick="cmd('leftKeyDown')">🔽 降 Key (-1)</button>
       <button id="btn-leftVocal0" class="ctrl-btn" onclick="cmd('leftVocal0')">🔇 伴唱 (0%)</button>
-      <button id="btn-leftVocal40" class="ctrl-btn" onclick="cmd('leftVocal40')">🔉 導唱 (40%)</button>
-      <button id="btn-leftVocal100" class="ctrl-btn" style="grid-column: span 2;" onclick="cmd('leftVocal100')">🔊 左軌原唱 (100%)</button>
+      <button id="btn-leftVocal100" class="ctrl-btn" onclick="cmd('leftVocal100')">🔊 原唱 (100%)</button>
     </div>
 
     <h3>🎛️ 右轉盤 (Deck 2) · Key: <span id="rightKeyLabel">0</span></h3>
@@ -196,8 +194,7 @@
       <button class="ctrl-btn" onclick="cmd('rightKeyUp')">🔼 升 Key (+1)</button>
       <button class="ctrl-btn" onclick="cmd('rightKeyDown')">🔽 降 Key (-1)</button>
       <button id="btn-rightVocal0" class="ctrl-btn" onclick="cmd('rightVocal0')">🔇 伴唱 (0%)</button>
-      <button id="btn-rightVocal40" class="ctrl-btn" onclick="cmd('rightVocal40')">🔉 導唱 (40%)</button>
-      <button id="btn-rightVocal100" class="ctrl-btn" style="grid-column: span 2;" onclick="cmd('rightVocal100')">🔊 右軌原唱 (100%)</button>
+      <button id="btn-rightVocal100" class="ctrl-btn" onclick="cmd('rightVocal100')">🔊 原唱 (100%)</button>
     </div>
 
     <h3>⏯️ 播放與混音切歌</h3>
@@ -295,7 +292,7 @@
       if (!state) return;
       document.getElementById('leftKeyLabel').innerText = formatKey(state.leftKey);
       document.getElementById('rightKeyLabel').innerText = formatKey(state.rightKey);
-      [0, 40, 100].forEach(level => {
+      [0, 100].forEach(level => {
         document.getElementById(`btn-leftVocal${level}`)?.classList.toggle('active', state.leftVocal === level);
         document.getElementById(`btn-rightVocal${level}`)?.classList.toggle('active', state.rightVocal === level);
         document.getElementById(`btn-bothVocal${level}`)?.classList.toggle(
