@@ -144,6 +144,27 @@
       padding: 16px;
     }
     .empty-tip { text-align: center; color: #777; font-size: 14px; }
+    .filter-panel {
+      background: var(--surface);
+      border: 1px solid #333;
+      border-radius: 10px;
+      padding: 10px;
+      margin-bottom: 12px;
+      display: none;
+    }
+    .filter-panel.open { display: block; }
+    .filter-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+    select {
+      width: 100%;
+      padding: 8px;
+      border-radius: 6px;
+      border: 1px solid #444;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 13px;
+    }
+    .filter-footer { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: #ccc; }
+    .btn-tag { background: #374151; color: #fff; padding: 8px; font-size: 12px; }
   </style>
 </head>
 <body>
@@ -164,7 +185,54 @@
     <div class="search-box">
       <input id="q" type="text" placeholder="輸入歌名或歌手..." onkeypress="if(event.key==='Enter') doSearch()" />
       <button onclick="doSearch()">搜尋</button>
-      <button style="background: var(--secondary);" onclick="loadLocalLibrary()">📂 本地</button>
+      <button style="background: var(--secondary);" onclick="toggleCatalogPanel()">🎵 分類</button>
+    </div>
+
+    <div id="filterPanel" class="filter-panel">
+      <div class="filter-grid">
+        <select id="fGender" onchange="loadCatalog()">
+          <option value="">全部歌手類型</option>
+          <option value="男歌手">男歌手</option>
+          <option value="女歌手">女歌手</option>
+          <option value="團體">團體</option>
+          <option value="對唱">雙人對唱</option>
+        </select>
+        <select id="fLanguage" onchange="loadCatalog()">
+          <option value="">全部語種</option>
+          <option value="國語">國語</option>
+          <option value="台語">台語</option>
+          <option value="粵語">粵語</option>
+          <option value="日語">日語</option>
+          <option value="韓語">韓語</option>
+          <option value="英語">英語</option>
+        </select>
+        <select id="fCategory" onchange="loadCatalog()">
+          <option value="">全部曲風</option>
+          <option value="流行">流行</option>
+          <option value="派對">派對</option>
+          <option value="抒情">抒情</option>
+          <option value="搖滾">搖滾</option>
+          <option value="經典">經典</option>
+        </select>
+        <select id="fCharCount" onchange="loadCatalog()">
+          <option value="">全部字數</option>
+          <option value="1">1 字歌名</option>
+          <option value="2">2 字歌名</option>
+          <option value="3">3 字歌名</option>
+          <option value="4">4 字歌名</option>
+          <option value="5+">5 字以上</option>
+        </select>
+      </div>
+      <div class="filter-footer">
+        <label style="display:flex; align-items:center; gap:6px;">
+          <input id="fLocalOnly" type="checkbox" style="width:auto; flex:none;" onchange="loadCatalog()" /> 僅看本地已快取
+        </label>
+        <select id="fSort" style="width:auto;" onchange="loadCatalog()">
+          <option value="popular">熱門點播</option>
+          <option value="recent">最新加入</option>
+          <option value="chars">字數排序</option>
+        </select>
+      </div>
     </div>
 
     <div id="status" class="status-bar"></div>
@@ -175,30 +243,12 @@
       <div class="empty-tip">目前沒有點播歌曲</div>
     </div>
 
-    <h3>🎙️ 雙軌同步人聲控制</h3>
+    <h3>🎛️ 包廂遙控 · Key: <span id="keyLabel">0</span></h3>
     <div class="grid">
-      <button id="btn-bothVocal0" class="ctrl-btn" onclick="cmd('bothVocal0')">🔇 雙軌伴唱 (0%)</button>
-      <button id="btn-bothVocal100" class="ctrl-btn" onclick="cmd('bothVocal100')">🔊 雙軌原唱 (100%)</button>
-    </div>
-
-    <h3>🎛️ 左轉盤 (Deck 1) · Key: <span id="leftKeyLabel">0</span></h3>
-    <div class="grid">
-      <button class="ctrl-btn" onclick="cmd('leftKeyUp')">🔼 升 Key (+1)</button>
-      <button class="ctrl-btn" onclick="cmd('leftKeyDown')">🔽 降 Key (-1)</button>
-      <button id="btn-leftVocal0" class="ctrl-btn" onclick="cmd('leftVocal0')">🔇 伴唱 (0%)</button>
-      <button id="btn-leftVocal100" class="ctrl-btn" onclick="cmd('leftVocal100')">🔊 原唱 (100%)</button>
-    </div>
-
-    <h3>🎛️ 右轉盤 (Deck 2) · Key: <span id="rightKeyLabel">0</span></h3>
-    <div class="grid">
-      <button class="ctrl-btn" onclick="cmd('rightKeyUp')">🔼 升 Key (+1)</button>
-      <button class="ctrl-btn" onclick="cmd('rightKeyDown')">🔽 降 Key (-1)</button>
-      <button id="btn-rightVocal0" class="ctrl-btn" onclick="cmd('rightVocal0')">🔇 伴唱 (0%)</button>
-      <button id="btn-rightVocal100" class="ctrl-btn" onclick="cmd('rightVocal100')">🔊 原唱 (100%)</button>
-    </div>
-
-    <h3>⏯️ 播放與混音切歌</h3>
-    <div class="grid">
+      <button class="ctrl-btn" onclick="cmd('keyUp')">🔼 升 Key (+1)</button>
+      <button class="ctrl-btn" onclick="cmd('keyDown')">🔽 降 Key (-1)</button>
+      <button id="btn-vocal0" class="ctrl-btn" onclick="cmd('vocal0')">🔇 伴唱 (0%)</button>
+      <button id="btn-vocal100" class="ctrl-btn" onclick="cmd('vocal100')">🔊 原唱 (100%)</button>
       <button class="ctrl-btn" style="background: var(--warn); color: #000;" onclick="cmd('playPause')">⏯️ 播放 / 暫停</button>
       <button class="ctrl-btn" style="background: var(--secondary); color: #000;" onclick="skipSong()">⏭️ AI 混音切歌</button>
     </div>
@@ -290,16 +340,9 @@
 
     function syncDeckUI(state) {
       if (!state) return;
-      document.getElementById('leftKeyLabel').innerText = formatKey(state.leftKey);
-      document.getElementById('rightKeyLabel').innerText = formatKey(state.rightKey);
-      [0, 100].forEach(level => {
-        document.getElementById(`btn-leftVocal${level}`)?.classList.toggle('active', state.leftVocal === level);
-        document.getElementById(`btn-rightVocal${level}`)?.classList.toggle('active', state.rightVocal === level);
-        document.getElementById(`btn-bothVocal${level}`)?.classList.toggle(
-          'active',
-          state.leftVocal === level && state.rightVocal === level
-        );
-      });
+      document.getElementById('keyLabel').innerText = formatKey(state.key ?? 0);
+      document.getElementById('btn-vocal0')?.classList.toggle('active', state.vocal === 0);
+      document.getElementById('btn-vocal100')?.classList.toggle('active', state.vocal === 100);
     }
 
     function renderResults(list, emptyMsg) {
@@ -312,21 +355,69 @@
       document.getElementById('results').innerHTML = currentList.map((item, idx) => {
         const min = item.durationSec
           ? Math.floor(item.durationSec / 60) + ':' + String(item.durationSec % 60).padStart(2, '0')
-          : '本地檔';
+          : (item.isLocal ? '本地檔' : '待下載');
+        const tags = item.dbId ? ` · ${escapeHtml(item.language)}/${escapeHtml(item.gender)}/${escapeHtml(item.category)}` : '';
+        const tagBtn = item.dbId ? `<button class="btn-tag" onclick="editTags(${idx})">🏷️</button>` : '';
         return `
           <div class="card">
             <img src="${escapeHtml(item.thumbnail)}" alt="" />
             <div class="info">
               <div class="title">${escapeHtml(item.title)}</div>
-              <div class="meta"><span class="badge">${escapeHtml(item.sourceLabel)}</span>${escapeHtml(item.artist)} · ${min}</div>
+              <div class="meta"><span class="badge">${escapeHtml(item.sourceLabel)}</span>${escapeHtml(item.artist)} · ${min}${tags}</div>
             </div>
             <div class="btn-group">
+              ${tagBtn}
               <button onclick="orderSong(${idx}, false, this)">點歌</button>
               <button class="btn-bump" onclick="orderSong(${idx}, true, this)">插播</button>
             </div>
           </div>
         `;
       }).join('');
+    }
+
+    function toggleCatalogPanel() {
+      const panel = document.getElementById('filterPanel');
+      panel.classList.toggle('open');
+      if (panel.classList.contains('open')) loadCatalog();
+    }
+
+    async function loadCatalog() {
+      const params = new URLSearchParams({
+        q: document.getElementById('q').value.trim(),
+        gender: document.getElementById('fGender').value,
+        language: document.getElementById('fLanguage').value,
+        category: document.getElementById('fCategory').value,
+        charCount: document.getElementById('fCharCount').value,
+        localOnly: document.getElementById('fLocalOnly').checked ? '1' : '0',
+        sort: document.getElementById('fSort').value
+      });
+      showStatus('🎵 正在查詢 KTV 分類曲庫...');
+      try {
+        const res = await apiFetch('/api/catalog?' + params.toString());
+        if (!res.ok) return;
+        const list = await res.json();
+        showStatus(`曲庫共找到 ${list.length} 首歌曲：`);
+        renderResults(list, '沒有符合篩選條件的歌曲');
+      } catch (e) {
+        if (e.message !== 'NO_API_BASE') showStatus('❌ 查詢曲庫失敗');
+      }
+    }
+
+    async function editTags(idx) {
+      const item = currentList[idx];
+      if (!item?.dbId) return;
+      const input = prompt(
+        '編輯分類（格式：歌手類型,語種,曲風）\n類型：男歌手/女歌手/團體/對唱\n語種：國語/台語/粵語/日語/韓語/英語\n曲風：流行/派對/抒情/搖滾/經典',
+        `${item.gender},${item.language},${item.category}`
+      );
+      if (!input) return;
+      const [gender, language, category] = input.split(',').map(s => s.trim());
+      const res = await apiFetch('/api/catalog/' + item.dbId, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gender, language, category })
+      });
+      if (res.ok) loadCatalog();
     }
 
     async function doSearch() {
